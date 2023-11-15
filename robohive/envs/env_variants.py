@@ -47,10 +47,10 @@ def register_env_variant(env_id:str, variants:dict, variant_id=None, silent=Fals
     """
 
     # check if the base env is registered
-    assert env_id in gym.envs.registry.env_specs.keys(), "ERROR: {} not found in env registry".format(env_id)
+    assert env_id in gym.envs.registry.keys(), "ERROR: {} not found in env registry".format(env_id)
 
     # recover the specs of the existing env
-    env_variant_specs = deepcopy(gym.envs.registry.env_specs[env_id])
+    env_variant_specs = deepcopy(gym.envs.registry[env_id])
     env_variant_id = env_variant_specs.id[:-3]
 
     # update horizon if requested
@@ -59,17 +59,17 @@ def register_env_variant(env_id:str, variants:dict, variant_id=None, silent=Fals
         env_variant_id = env_variant_id+"-hor_{}".format(env_variant_specs.max_episode_steps)
         del variants['max_episode_steps']
 
-    # merge specs._kwargs with variants
-    env_variant_specs._kwargs, variants_update_keyval_str = update_dict(env_variant_specs._kwargs, variants, override_keys=override_keys)
+    # merge specs.kwargs with variants
+    env_variant_specs.kwargs, variants_update_keyval_str = update_dict(env_variant_specs.kwargs, variants, override_keys=override_keys)
     env_variant_id += variants_update_keyval_str
 
     # finalize name and register env
     env_variant_specs.id = env_variant_id+env_variant_specs.id[-3:] if variant_id is None else variant_id
     register(
         id=env_variant_specs.id,
-        entry_point=env_variant_specs._entry_point,
+        entry_point=env_variant_specs.entry_point,
         max_episode_steps=env_variant_specs.max_episode_steps,
-        kwargs=env_variant_specs._kwargs
+        kwargs=env_variant_specs.kwargs
     )
     if not silent:
         print("Registered a new env-variant:", env_variant_specs.id)
@@ -96,11 +96,11 @@ if __name__ == '__main__':
 
     # Test variant
     print("Base-env kwargs: ")
-    pprint.pprint(gym.envs.registry.env_specs[base_env_name]._kwargs)
+    pprint.pprint(gym.envs.registry[base_env_name].kwargs)
     print("Env-variant kwargs: ")
-    pprint.pprint(gym.envs.registry.env_specs[variant_env_name]._kwargs)
+    pprint.pprint(gym.envs.registry[variant_env_name].kwargs)
     print("Env-variant (with override) kwargs: ")
-    pprint.pprint(gym.envs.registry.env_specs[variant_overide_env_name]._kwargs)
+    pprint.pprint(gym.envs.registry[variant_overide_env_name].kwargs)
 
     # Test one of the newly minted env
     env = gym.make(variant_env_name)

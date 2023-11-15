@@ -118,11 +118,13 @@ register_env_variant(
 # FRANKA PICK-PLACE =======================================================================
 from robohive.envs.arms.pick_place_v0 import PickPlaceV0
 
+encoder_type = "2d"
+img_res="128x128"
 # Fixed Target
 register(
     id='FrankaPickPlaceFixed-v0',
     entry_point='robohive.envs.arms.pick_place_v0:PickPlaceV0',
-    max_episode_steps=50, #50steps*40Skip*2ms = 4s
+    max_episode_steps=100, #50steps*40Skip*2ms = 4s
     kwargs={
         'model_path': curr_dir+'/franka/assets/franka_busbin_v0.xml',
         'config_path': curr_dir+'/franka/assets/franka_busbin_v0.config',
@@ -131,6 +133,11 @@ register(
         'object_site_name': "obj0",
         'target_site_name': "drop_target",
         'target_xyz_range': {'high':[-.235, 0.5, 0.85], 'low':[-.235, 0.5, 0.85]},
+        'visual_keys':[
+            # customize the visual keys
+            "rgb:top_cam:{}:{}".format(img_res, encoder_type),
+            "rgb:Franka_wrist_cam:{}:{}".format(img_res, encoder_type),
+        ],
     }
 )
 

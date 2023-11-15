@@ -13,6 +13,7 @@ from robohive.envs import env_base
 from robohive.utils.quat_math import euler2quat
 
 class PickPlaceV0(env_base.MujocoEnv):
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 60}
 
     DEFAULT_OBS_KEYS = [
         'qp_robot', 'qp_object', 'qv_robot', 'qv_object', 'object_err', 'target_err'
@@ -27,7 +28,7 @@ class PickPlaceV0(env_base.MujocoEnv):
         "penalty": -50,
     }
 
-    def __init__(self, model_path, obsd_model_path=None, seed=None, **kwargs):
+    def __init__(self, model_path, obsd_model_path=None, seed=None, render_mode=None, **kwargs):
 
         # EzPickle.__init__(**locals()) is capturing the input dictionary of the init method of this class.
         # In order to successfully capture all arguments we need to call gym.utils.EzPickle.__init__(**locals())
@@ -43,6 +44,8 @@ class PickPlaceV0(env_base.MujocoEnv):
         # created in __init__ to complete the setup.
         super().__init__(model_path=model_path, obsd_model_path=obsd_model_path, seed=seed)
 
+        assert render_mode is None or render_mode in self.metadata["render_modes"]
+        self.render_mode = render_mode
         self._setup(**kwargs)
 
 
@@ -117,7 +120,8 @@ class PickPlaceV0(env_base.MujocoEnv):
             self.sim_obsd.model.site_pos[self.target_sid] = self.sim.model.site_pos[self.target_sid]
 
             # object shapes and locations
-            for body in ["obj0", "obj1", "obj2"]:
+            # for body in ["obj0", "obj1", "obj2"]:
+            for body in ["obj0",]:
                 bid = self.sim.model.body_name2id(body)
                 self.sim.model.body_pos[bid] += self.np_random.uniform(low=[-.010, -.010, -.010], high=[-.010, -.010, -.010])# random pos
                 self.sim.model.body_quat[bid] = euler2quat(self.np_random.uniform(low=(-np.pi/2, -np.pi/2, -np.pi/2), high=(np.pi/2, np.pi/2, np.pi/2)) ) # random quat
@@ -132,7 +136,7 @@ class PickPlaceV0(env_base.MujocoEnv):
             self.sim.forward()
 
         obs = super().reset(self.init_qpos, self.init_qvel)
-        return obs
+        return obs, {} # obs, info to be compatible with new versions of gym
 
     # def viewer_setup(self):
     #     self.sim.renderer.set_free_camera_settings(

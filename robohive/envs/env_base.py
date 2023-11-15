@@ -5,6 +5,7 @@ Source  :: https://github.com/vikashplus/robohive
 License :: Under Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 ================================================= """
 
+from typing import Any
 import gym
 import numpy as np
 import os
@@ -130,7 +131,7 @@ class MujocoEnv(gym.Env, gym.utils.EzPickle, ObsVecDict):
         self._setup_rgb_encoders(self.visual_keys, device=None)
 
         # reset to get the env ready
-        observation, _reward, done, _info = self.step(np.zeros(self.sim.model.nu))
+        observation, _reward, done, truncated, _info = self.step(np.zeros(self.sim.model.nu))
         # Question: Should we replace above with following? Its specially helpful for hardware as it forces a env reset before continuing, without which the hardware will make a big jump from its position to the position asked by step.
         # observation = self.reset()
         assert not done, "Check initialization. Simulation starts in a done state."
@@ -145,15 +146,16 @@ class MujocoEnv(gym.Env, gym.utils.EzPickle, ObsVecDict):
         """
         if self.visual_keys == None:
             return
-        else:
+        # else:
             # import torch only if environment with visual keys are used.
-            import_utils.torch_isavailable()
-            global torch; import torch
+            # import_utils.torch_isavailable()
+            # global torch; import torch
 
-        if device is None:
-            self.device_encoder = "cuda" if torch.cuda.is_available() else "cpu"
-        else:
-            self.device_encoder=device
+        # if device is None:
+        #     self.device_encoder = "cuda" if torch.cuda.is_available() else "cpu"
+        # else:
+        #     self.device_encoder=device
+        self.device_encoder='cuda'
 
         # ensure that all keys use the same encoder and image sizes
         id_encoders = []
@@ -166,12 +168,15 @@ class MujocoEnv(gym.Env, gym.utils.EzPickle, ObsVecDict):
             assert unique_encoder, "Env only supports single encoder. Multiple in use ({})".format(id_encoders)
 
         # prepare encoder and transforms
-        class IdentityEncoder(torch.nn.Module):
-            def __init__(self):
-                super(IdentityEncoder, self).__init__()
-
-            def forward(self, x):
+        class IdentityEncoder():
+            def __call__(self, x, *args: Any, **kwds: Any) -> Any:
                 return x
+            
+            def eval(self):
+                pass
+
+            def to(self, device):
+                pass
 
         self.rgb_encoder = None
         self.rgb_transform = None
@@ -255,6 +260,9 @@ class MujocoEnv(gym.Env, gym.utils.EzPickle, ObsVecDict):
         Uses robot interface to safely step the forward respecting pos/ vel limits
         Accepts a(t) returns obs(t+1), rwd(t+1), done(t+1), info(t+1)
         """
+        if not isinstance(a, np.ndarray):
+            a = np.array(a)
+
         a = np.clip(a, self.action_space.low, self.action_space.high)
         self.last_ctrl = self.robot.step(ctrl_desired=a,
                                         ctrl_normalized=self.normalize_act,
@@ -287,7 +295,8 @@ class MujocoEnv(gym.Env, gym.utils.EzPickle, ObsVecDict):
         env_info = self.get_env_infos()
 
         # returns obs(t+1), rwd(t+1), done(t+1), info(t+1)
-        return obs, env_info['rwd_'+self.rwd_mode], bool(env_info['done']), env_info
+        # add truncated = False to be compatible with new gym
+        return obs, env_info['rwd_'+self.rwd_mode], bool(env_info['done']), False, env_info
 
 
     def get_obs(self, update_proprioception=True, update_exteroception=False):
@@ -634,6 +643,9 @@ class MujocoEnv(gym.Env, gym.utils.EzPickle, ObsVecDict):
 
     # Vizualization utilities ================================================
 
+    def render(self, mode=None):
+        self.mj_render()
+
     def mj_render(self):
         """
         Render the default camera
@@ -702,7 +714,7 @@ class MujocoEnv(gym.Env, gym.utils.EzPickle, ObsVecDict):
             ep_rwd = 0.0
             while t < horizon and done is False:
                 a = policy.get_action(o)[0] if mode == 'exploration' else policy.get_action(o)[1]['evaluation']
-                next_o, rwd, done, env_info = self.step(a)
+                next_o, rwd, done, truncated, env_info = self.step(a)
                 ep_rwd += rwd
                 # render offscreen visuals
                 if render =='offscreen':
@@ -825,7 +837,7 @@ class MujocoEnv(gym.Env, gym.utils.EzPickle, ObsVecDict):
 
 
                 # step env using actions from t=>t+1 ----------------------
-                obs, rwd, done, env_info = self.step(act, update_exteroception=True)
+                obs, rwd, done, truncated, env_info = self.step(act, update_exteroception=True)
                 t = t+1
                 ep_rwd += rwd
 
